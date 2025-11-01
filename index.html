@@ -1,0 +1,984 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Heart Health Manager</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+        
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+        
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+        .animate-spin {
+            animation: spin 1s linear infinite;
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .fade-in {
+            animation: fadeIn 0.5s ease-out;
+        }
+        
+        .tab-active {
+            color: #2563eb;
+            border-bottom: 2px solid #2563eb;
+        }
+        
+        /* Custom scrollbar */
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #f1f5f9;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #94a3b8;
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #64748b;
+        }
+    </style>
+</head>
+<body class="bg-gradient-to-br from-blue-50 to-indigo-50 min-h-screen">
+    <!-- API Key Modal -->
+    <div id="api-modal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 hidden">
+        <div class="bg-white rounded-2xl shadow-2xl p-8 max-w-md w-full mx-4 fade-in">
+            <div class="flex items-center gap-3 mb-6">
+                <div class="bg-blue-100 p-3 rounded-full">
+                    <svg class="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z"/>
+                    </svg>
+                </div>
+                <h2 class="text-2xl font-bold text-gray-800">API Configuration</h2>
+            </div>
+            <p class="text-gray-600 mb-6">Enter your Anthropic API key to enable AI features. Get your key from <a href="https://console.anthropic.com" target="_blank" class="text-blue-600 hover:underline font-semibold">console.anthropic.com</a></p>
+            <input
+                type="password"
+                id="api-key-input"
+                class="w-full p-4 border-2 border-gray-200 rounded-xl focus:border-blue-500 focus:outline-none transition-colors mb-4"
+                placeholder="......."
+            />
+            <div class="flex gap-3">
+                <button
+                    onclick="saveApiKey()"
+                    class="flex-1 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white px-6 py-3 rounded-xl font-semibold transition-all"
+                >
+                    Save Key
+                </button>
+                <button
+                    onclick="closeApiModal()"
+                    class="px-6 py-3 bg-gray-200 hover:bg-gray-300 rounded-xl font-semibold transition-colors"
+                >
+                    Cancel
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <div id="app"></div>
+
+    <script>
+        // SVG Icons
+        const Icons = {
+            heart: `<svg class="inline-block" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"/></svg>`,
+            camera: `<svg class="inline-block" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z"/><circle cx="12" cy="13" r="3"/></svg>`,
+            utensils: `<svg class="inline-block" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 2v7c0 1.1.9 2 2 2h4a2 2 0 0 0 2-2V2"/><path d="M7 2v20"/><path d="M21 15V2v0a5 5 0 0 0-5 5v6c0 1.1.9 2 2 2h3Zm0 0v7"/></svg>`,
+            dumbbell: `<svg class="inline-block" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6.5 6.5 11 11"/><path d="m21 21-1-1"/><path d="m3 3 1 1"/><path d="m18 22 4-4"/><path d="m2 6 4-4"/><path d="m3 10 7-7"/><path d="m14 21 7-7"/></svg>`,
+            upload: `<svg class="inline-block" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>`,
+            alertCircle: `<svg class="inline-block" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>`,
+            checkCircle: `<svg class="inline-block" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>`,
+            trendingDown: `<svg class="inline-block" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 18 13.5 8.5 8.5 13.5 1 6"/><polyline points="17 18 23 18 23 12"/></svg>`,
+            sparkles: `<svg class="inline-block" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"/></svg>`,
+            messageCircle: `<svg class="inline-block" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg>`,
+            send: `<svg class="inline-block" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>`
+        };
+
+        // API Key Management
+        let API_KEY = localStorage.getItem('anthropic_api_key') || '';
+
+        function openApiModal() {
+            document.getElementById('api-modal').classList.remove('hidden');
+            document.getElementById('api-key-input').value = API_KEY;
+        }
+
+        function closeApiModal() {
+            document.getElementById('api-modal').classList.add('hidden');
+        }
+
+        function saveApiKey() {
+            const input = document.getElementById('api-key-input');
+            API_KEY = input.value.trim();
+            if (API_KEY) {
+                localStorage.setItem('anthropic_api_key', API_KEY);
+                alert('✅ API Key saved successfully!');
+                closeApiModal();
+                render();
+            } else {
+                alert('⚠️ Please enter a valid API key');
+            }
+        }
+
+        // User Profile Data
+        const userProfile = {
+            name: "Winston",
+            age: 47,
+            height: 169,
+            weight: 80,
+            bmi: (80 / (1.69 * 1.69)).toFixed(1),
+            currentCholesterol: 6.8,
+            currentLDL: 4.7,
+            currentHDL: 1.1,
+            currentTriglycerides: 2.1,
+            bloodPressure: "133/82",
+            targetCholesterol: 4.5,
+            targetLDL: 2.6,
+            timeline: "6 months"
+        };
+
+        // State Management
+        let state = {
+            activeTab: 'dashboard',
+            uploadedImage: null,
+            isAnalyzing: false,
+            analysisResult: null,
+            chatMessages: [],
+            isChatLoading: false,
+            generatedMealPlan: null,
+            generatedWorkout: null,
+            isGenerating: false
+        };
+
+        // API Call Helper
+        async function callClaudeAPI(messages, maxTokens = 3000) {
+            if (!API_KEY) {
+                alert('⚠️ Please configure your API key first');
+                openApiModal();
+                throw new Error('API key not configured');
+            }
+
+            try {
+                const response = await fetch("https://api.anthropic.com/v1/messages", {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json",
+                        "x-api-key": API_KEY,
+                        "anthropic-version": "2023-06-01"
+                    },
+                    body: JSON.stringify({
+                        model: "claude-sonnet-4-20250514",
+                        max_tokens: maxTokens,
+                        messages: messages
+                    })
+                });
+
+                if (!response.ok) {
+                    const error = await response.json();
+                    throw new Error(error.error?.message || 'API request failed');
+                }
+
+                const data = await response.json();
+                return data.content[0].text;
+            } catch (error) {
+                console.error("API Error:", error);
+                alert('❌ Error: ' + error.message);
+                throw error;
+            }
+        }
+
+        // Image Upload Handler
+        async function handleImageUpload(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = async (e) => {
+                const base64Data = e.target.result.split(',')[1];
+                state.uploadedImage = e.target.result;
+                state.isAnalyzing = true;
+                render();
+
+                try {
+                    const responseText = await callClaudeAPI([
+                        {
+                            role: "user",
+                            content: [
+                                {
+                                    type: "image",
+                                    source: {
+                                        type: "base64",
+                                        media_type: file.type,
+                                        data: base64Data,
+                                    }
+                                },
+                                {
+                                    type: "text",
+                                    text: `Analyze this food nutrition label for someone with high cholesterol (6.8 mmol/L, target <4.5) and high LDL (4.7 mmol/L, target <2.6) who needs to lower triglycerides (2.1 mmol/L, target <1.7) and manage blood pressure (133/82).
+
+Focus on:
+1. Saturated fat content (should be minimal)
+2. Trans fat content (should be zero)
+3. Sodium content (should be low, <140mg per serving is ideal)
+4. Fiber content (higher is better)
+5. Added sugars (should be minimal)
+6. Overall cholesterol impact
+
+Provide your response in this EXACT JSON format with no other text:
+{
+  "productName": "name of product",
+  "recommendation": "AVOID/CAUTION/MODERATE/GOOD",
+  "overallScore": 1-10,
+  "keyNutrients": {
+    "saturatedFat": "amount per serving",
+    "transFat": "amount",
+    "sodium": "amount in mg",
+    "fiber": "amount",
+    "sugar": "amount"
+  },
+  "healthImpact": "brief explanation of why this is good or bad for cholesterol/blood pressure",
+  "alternatives": "suggest 2-3 healthier alternatives if recommendation is AVOID or CAUTION"
+}`
+                                }
+                            ]
+                        }
+                    ], 2000);
+
+                    let cleanedResponse = responseText.replace(/```json\n?/g, "").replace(/```\n?/g, "").trim();
+                    state.analysisResult = JSON.parse(cleanedResponse);
+                } catch (error) {
+                    state.analysisResult = {
+                        productName: "Analysis Error",
+                        recommendation: "CAUTION",
+                        overallScore: 5,
+                        healthImpact: "Unable to analyze the image. Please ensure it's a clear photo of a nutrition label.",
+                        alternatives: "Try uploading a clearer image."
+                    };
+                }
+
+                state.isAnalyzing = false;
+                render();
+            };
+            reader.readAsDataURL(file);
+        }
+
+        // Generate Meal Plan
+        async function generateMealPlan(preferences) {
+            state.isGenerating = true;
+            render();
+
+            try {
+                const prompt = `Create a 7-day heart-healthy meal plan for someone with:
+- High cholesterol (6.8 mmol/L, target <4.5)
+- High LDL (4.7 mmol/L, target <2.6)
+- Elevated triglycerides (2.1 mmol/L, target <1.7)
+- Blood pressure 133/82 (on medication)
+- Age 47, 169cm, 80kg
+- Lives in South Africa
+
+User preferences:
+${preferences}
+
+Requirements:
+- Include South African foods where possible
+- Low saturated fat (<7% of calories)
+- High fiber (25-30g daily)
+- Low sodium (<2,300mg daily)
+- Include breakfast, lunch, dinner, and 2 snacks per day
+- Provide portion sizes and simple cooking instructions
+
+Format as a structured 7-day plan with nutritional highlights for each day.`;
+
+                const response = await callClaudeAPI([
+                    { role: "user", content: prompt }
+                ], 4000);
+
+                state.generatedMealPlan = response;
+            } catch (error) {
+                state.generatedMealPlan = "Error generating meal plan. Please check your API key and try again.";
+            }
+
+            state.isGenerating = false;
+            render();
+        }
+
+        // Generate Workout
+        async function generateWorkout(preferences) {
+            state.isGenerating = true;
+            render();
+
+            try {
+                const prompt = `Create a custom workout plan for someone with:
+- Age 47, beginner fitness level
+- Goal: Reduce cholesterol and improve cardiovascular health
+- Blood pressure 133/82 (on medication)
+- Currently walks regularly but hasn't been very active
+
+User preferences:
+${preferences}
+
+Requirements:
+- Home-based workout
+- Include warm-up and cool-down
+- Provide detailed exercise instructions
+- Include safety notes for blood pressure management
+- Progressive difficulty
+- Specify sets, reps, and rest periods
+
+Create a complete workout session with the specified equipment.`;
+
+                const response = await callClaudeAPI([
+                    { role: "user", content: prompt }
+                ], 3000);
+
+                state.generatedWorkout = response;
+            } catch (error) {
+                state.generatedWorkout = "Error generating workout. Please check your API key and try again.";
+            }
+
+            state.isGenerating = false;
+            render();
+        }
+
+        // Chat Handler
+        async function sendChatMessage(message) {
+            if (!message.trim()) return;
+
+            state.chatMessages.push({ role: 'user', content: message });
+            state.isChatLoading = true;
+            render();
+
+            try {
+                const contextPrompt = `You are a health assistant helping someone with:
+- High cholesterol (6.8 mmol/L, target <4.5)
+- High LDL (4.7 mmol/L, target <2.6)
+- Elevated triglycerides (2.1 mmol/L, target <1.7)
+- Blood pressure 133/82 (on medication)
+- Age 47, 169cm, 80kg, BMI 28
+- Beginner fitness level
+- Lives in South Africa
+
+Provide helpful, practical advice. Keep responses concise but informative.`;
+
+                const messages = [
+                    { role: "user", content: contextPrompt },
+                    { role: "assistant", content: "I understand. I'll provide helpful advice for managing cholesterol and blood pressure through diet and exercise, tailored to your situation in South Africa." },
+                    ...state.chatMessages
+                ];
+
+                const response = await callClaudeAPI(messages, 2000);
+                
+                state.chatMessages.push({ role: 'assistant', content: response });
+            } catch (error) {
+                state.chatMessages.push({ 
+                    role: 'assistant', 
+                    content: 'Sorry, I encountered an error. Please check your API key configuration.' 
+                });
+            }
+
+            state.isChatLoading = false;
+            render();
+        }
+
+        // Set active tab
+        function setTab(tab) {
+            state.activeTab = tab;
+            render();
+        }
+
+        // Generate meal plan handler
+        function generateMealPlanHandler() {
+            const preferences = document.getElementById('meal-preferences')?.value || 'Standard meal plan with South African foods';
+            generateMealPlan(preferences);
+        }
+
+        // Generate workout handler
+        function generateWorkoutHandler() {
+            const preferences = document.getElementById('workout-preferences')?.value || 'Bodyweight workout, 30 minutes, beginner level';
+            generateWorkout(preferences);
+        }
+
+        // Send chat message handler
+        function sendChatHandler() {
+            const input = document.getElementById('chat-input');
+            if (input && input.value.trim()) {
+                sendChatMessage(input.value);
+                input.value = '';
+            }
+        }
+
+        // Ask example question
+        function askExample(question) {
+            const input = document.getElementById('chat-input');
+            if (input) {
+                input.value = question;
+                sendChatHandler();
+            }
+        }
+
+        // Components
+        function Dashboard() {
+            return `
+                <div class="space-y-6 fade-in">
+                    <div class="bg-gradient-to-r from-red-50 to-orange-50 p-6 rounded-lg border-l-4 border-red-500 shadow-md">
+                        <div class="flex items-start gap-3">
+                            <span class="text-red-500 mt-1">${Icons.alertCircle}</span>
+                            <div>
+                                <h3 class="font-bold text-lg mb-2">Your Health Status: Action Needed</h3>
+                                <p class="text-gray-700 mb-3">
+                                    Your cholesterol levels are significantly above target ranges. The good news: with lifestyle changes, 
+                                    you can expect to reduce LDL cholesterol by 10-15% in 6 months through diet and exercise alone.
+                                </p>
+                                <div class="grid grid-cols-2 gap-4 text-sm">
+                                    <div>
+                                        <span class="font-semibold">Current Total Cholesterol:</span> ${userProfile.currentCholesterol} mmol/L
+                                        <span class="text-red-600 font-bold"> (HIGH)</span>
+                                    </div>
+                                    <div>
+                                        <span class="font-semibold">Target:</span> ${userProfile.targetCholesterol} mmol/L
+                                    </div>
+                                    <div>
+                                        <span class="font-semibold">Current LDL:</span> ${userProfile.currentLDL} mmol/L
+                                        <span class="text-red-600 font-bold"> (HIGH)</span>
+                                    </div>
+                                    <div>
+                                        <span class="font-semibold">Target LDL:</span> ${userProfile.targetLDL} mmol/L
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <div class="bg-white p-6 rounded-lg shadow-md border-l-4 border-blue-500">
+                            <div class="flex items-center justify-between mb-3">
+                                <h3 class="font-bold text-gray-800">Blood Pressure</h3>
+                                <span class="text-blue-500">${Icons.heart}</span>
+                            </div>
+                            <p class="text-2xl font-bold">${userProfile.bloodPressure}</p>
+                            <p class="text-sm text-green-600 mt-2">✓ Well controlled with medication</p>
+                        </div>
+
+                        <div class="bg-white p-6 rounded-lg shadow-md border-l-4 border-purple-500">
+                            <div class="flex items-center justify-between mb-3">
+                                <h3 class="font-bold text-gray-800">HDL (Good)</h3>
+                                <span class="text-purple-500">${Icons.checkCircle}</span>
+                            </div>
+                            <p class="text-2xl font-bold">${userProfile.currentHDL} mmol/L</p>
+                            <p class="text-sm text-green-600 mt-2">✓ Above minimum target</p>
+                        </div>
+
+                        <div class="bg-white p-6 rounded-lg shadow-md border-l-4 border-orange-500">
+                            <div class="flex items-center justify-between mb-3">
+                                <h3 class="font-bold text-gray-800">Triglycerides</h3>
+                                <span class="text-orange-500">${Icons.trendingDown}</span>
+                            </div>
+                            <p class="text-2xl font-bold">${userProfile.currentTriglycerides} mmol/L</p>
+                            <p class="text-sm text-orange-600 mt-2">Target: &lt;1.7 mmol/L</p>
+                        </div>
+                    </div>
+
+                    <div class="bg-blue-50 p-6 rounded-lg shadow-md">
+                        <h3 class="font-bold text-lg mb-4">Your 6-Month Action Plan</h3>
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div class="bg-white p-4 rounded-lg shadow-sm">
+                                <h4 class="font-semibold mb-2 flex items-center gap-2">
+                                    <span class="text-green-600">${Icons.utensils}</span>
+                                    Dietary Changes
+                                </h4>
+                                <ul class="text-sm space-y-1 text-gray-700">
+                                    <li>• Reduce saturated fat to &lt;7% of calories</li>
+                                    <li>• Eliminate trans fats completely</li>
+                                    <li>• Increase soluble fiber to 10-25g daily</li>
+                                    <li>• Add plant sterols (2g daily)</li>
+                                    <li>• Reduce sodium to &lt;2,300mg daily</li>
+                                </ul>
+                            </div>
+                            <div class="bg-white p-4 rounded-lg shadow-sm">
+                                <h4 class="font-semibold mb-2 flex items-center gap-2">
+                                    <span class="text-blue-600">${Icons.dumbbell}</span>
+                                    Exercise Goals
+                                </h4>
+                                <ul class="text-sm space-y-1 text-gray-700">
+                                    <li>• 150 minutes moderate activity/week</li>
+                                    <li>• Start with 20-30 min walks daily</li>
+                                    <li>• Build up to brisk walking</li>
+                                    <li>• Add strength training 2x/week</li>
+                                    <li>• Target: 5-7% weight reduction</li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        function LabelScanner() {
+            const recommendationColors = {
+                AVOID: 'bg-red-500',
+                CAUTION: 'bg-orange-500',
+                MODERATE: 'bg-yellow-500',
+                GOOD: 'bg-green-500'
+            };
+
+            return `
+                <div class="space-y-6 fade-in">
+                    <div class="bg-white p-6 rounded-lg shadow-md">
+                        <h3 class="font-bold text-xl mb-4 flex items-center gap-2">
+                            <span class="text-blue-600">${Icons.camera}</span>
+                            Food Label Scanner
+                        </h3>
+                        <p class="text-gray-600 mb-6">
+                            Upload a photo of any food label to get instant analysis of how it affects your cholesterol and blood pressure goals.
+                        </p>
+                        
+                        <div class="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center hover:border-blue-400 transition-colors">
+                            <input
+                                type="file"
+                                accept="image/*"
+                                onchange="handleImageUpload(event)"
+                                class="hidden"
+                                id="image-upload"
+                            />
+                            <label for="image-upload" class="cursor-pointer block">
+                                <span class="mx-auto text-gray-400 mb-4 block">${Icons.upload}</span>
+                                <p class="text-lg font-semibold text-gray-700">Click to upload food label</p>
+                                <p class="text-sm text-gray-500 mt-2">Support for JPG, PNG images</p>
+                            </label>
+                        </div>
+
+                        ${state.isAnalyzing ? `
+                            <div class="mt-6 text-center">
+                                <div class="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+                                <p class="mt-4 text-gray-600">Analyzing nutrition label...</p>
+                            </div>
+                        ` : ''}
+
+                        ${state.uploadedImage && !state.isAnalyzing ? `
+                            <div class="mt-6">
+                                <img src="${state.uploadedImage}" alt="Uploaded label" class="max-w-full h-auto rounded-lg shadow-md mx-auto" style="max-height: 300px;" />
+                            </div>
+                        ` : ''}
+
+                        ${state.analysisResult && !state.isAnalyzing ? `
+                            <div class="mt-6 bg-gray-50 p-6 rounded-lg">
+                                <div class="flex items-center justify-between mb-4">
+                                    <h4 class="font-bold text-lg">${state.analysisResult.productName}</h4>
+                                    <span class="${recommendationColors[state.analysisResult.recommendation]} text-white px-3 py-1 rounded-full text-sm font-semibold">
+                                        ${state.analysisResult.recommendation}
+                                    </span>
+                                </div>
+                                
+                                ${state.analysisResult.overallScore ? `
+                                    <div class="mb-4">
+                                        <div class="flex items-center justify-between mb-2">
+                                            <span class="text-sm font-semibold">Heart Health Score</span>
+                                            <span class="text-lg font-bold">${state.analysisResult.overallScore}/10</span>
+                                        </div>
+                                        <div class="w-full bg-gray-200 rounded-full h-3">
+                                            <div 
+                                                class="h-3 rounded-full ${
+                                                    state.analysisResult.overallScore >= 7 ? 'bg-green-500' : 
+                                                    state.analysisResult.overallScore >= 5 ? 'bg-yellow-500' : 'bg-red-500'
+                                                }"
+                                                style="width: ${state.analysisResult.overallScore * 10}%"
+                                            ></div>
+                                        </div>
+                                    </div>
+                                ` : ''}
+
+                                ${state.analysisResult.keyNutrients ? `
+                                    <div class="mb-4 grid grid-cols-2 gap-3 text-sm">
+                                        ${state.analysisResult.keyNutrients.saturatedFat ? `
+                                            <div class="bg-white p-3 rounded shadow-sm">
+                                                <span class="font-semibold">Saturated Fat:</span> ${state.analysisResult.keyNutrients.saturatedFat}
+                                            </div>
+                                        ` : ''}
+                                        ${state.analysisResult.keyNutrients.transFat ? `
+                                            <div class="bg-white p-3 rounded shadow-sm">
+                                                <span class="font-semibold">Trans Fat:</span> ${state.analysisResult.keyNutrients.transFat}
+                                            </div>
+                                        ` : ''}
+                                        ${state.analysisResult.keyNutrients.sodium ? `
+                                            <div class="bg-white p-3 rounded shadow-sm">
+                                                <span class="font-semibold">Sodium:</span> ${state.analysisResult.keyNutrients.sodium}
+                                            </div>
+                                        ` : ''}
+                                        ${state.analysisResult.keyNutrients.fiber ? `
+                                            <div class="bg-white p-3 rounded shadow-sm">
+                                                <span class="font-semibold">Fiber:</span> ${state.analysisResult.keyNutrients.fiber}
+                                            </div>
+                                        ` : ''}
+                                    </div>
+                                ` : ''}
+
+                                <div class="bg-white p-4 rounded-lg mb-4 shadow-sm">
+                                    <h5 class="font-semibold mb-2">Health Impact:</h5>
+                                    <p class="text-gray-700">${state.analysisResult.healthImpact}</p>
+                                </div>
+
+                                ${state.analysisResult.alternatives ? `
+                                    <div class="bg-blue-50 p-4 rounded-lg shadow-sm">
+                                        <h5 class="font-semibold mb-2">Better Alternatives:</h5>
+                                        <p class="text-gray-700">${state.analysisResult.alternatives}</p>
+                                    </div>
+                                ` : ''}
+                            </div>
+                        ` : ''}
+                    </div>
+
+                    <div class="bg-yellow-50 p-4 rounded-lg border-l-4 border-yellow-500 shadow-sm">
+                        <h4 class="font-semibold mb-2">Quick Scanning Tips:</h4>
+                        <ul class="text-sm space-y-1 text-gray-700">
+                            <li>• Look for "saturated fat" - should be minimal (ideally &lt;1g per serving)</li>
+                            <li>• Avoid any "trans fat" - should always be 0g</li>
+                            <li>• Check sodium - aim for &lt;140mg per serving (low sodium)</li>
+                            <li>• Seek fiber - 3g+ per serving is good</li>
+                            <li>• Watch added sugars - keep below 5g per serving</li>
+                        </ul>
+                    </div>
+                </div>
+            `;
+        }
+
+        function MealPlanner() {
+            return `
+                <div class="space-y-6 fade-in">
+                    <div class="bg-white p-6 rounded-lg shadow-md">
+                        <h3 class="font-bold text-xl mb-4 flex items-center gap-2">
+                            <span class="text-green-600">${Icons.utensils}</span>
+                            AI Meal Plan Generator
+                            <span class="text-purple-600">${Icons.sparkles}</span>
+                        </h3>
+                        <p class="text-gray-600 mb-6">
+                            Get a personalized 7-day meal plan generated by AI based on your preferences and health goals.
+                        </p>
+
+                        <div class="bg-gradient-to-r from-purple-50 to-pink-50 p-6 rounded-lg mb-6 border border-purple-200">
+                            <h4 class="font-bold mb-4">Generate Custom Meal Plan</h4>
+                            <div class="space-y-4">
+                                <div>
+                                    <label class="block text-sm font-semibold mb-2">Your Preferences:</label>
+                                    <textarea
+                                        id="meal-preferences"
+                                        class="w-full p-3 border rounded-lg focus:ring-2 focus:ring-purple-500 focus:outline-none"
+                                        rows="4"
+                                        placeholder="Example: I prefer vegetarian meals, I have 30 minutes for cooking, I don't like mushrooms, focus on Mediterranean cuisine, I travel 3 days per week..."
+                                    ></textarea>
+                                </div>
+                                <button
+                                    onclick="generateMealPlanHandler()"
+                                    class="bg-green-600 hover:bg-green-700 text-white px-6 py-3 rounded-lg font-semibold flex items-center gap-2 transition-colors"
+                                    ${state.isGenerating ? 'disabled' : ''}
+                                >
+                                    ${state.isGenerating ? `
+                                        <div class="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
+                                        <span>Generating...</span>
+                                    ` : `
+                                        <span>${Icons.sparkles}</span>
+                                        <span>Generate 7-Day Meal Plan</span>
+                                    `}
+                                </button>
+                            </div>
+                        </div>
+
+                        ${state.generatedMealPlan ? `
+                            <div class="bg-gray-50 p-6 rounded-lg shadow-md">
+                                <div class="flex justify-between items-center mb-4">
+                                    <h4 class="font-bold text-lg">Your Custom Meal Plan</h4>
+                                    <button
+                                        onclick="generateMealPlanHandler()"
+                                        class="text-sm bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded transition-colors"
+                                    >
+                                        Generate New Plan
+                                    </button>
+                                </div>
+                                <div class="bg-white p-4 rounded shadow-sm">
+                                    <div class="text-gray-700 whitespace-pre-wrap leading-relaxed">${state.generatedMealPlan}</div>
+                                </div>
+                            </div>
+                        ` : ''}
+                    </div>
+                </div>
+            `;
+        }
+
+        function WorkoutGenerator() {
+            return `
+                <div class="space-y-6 fade-in">
+                    <div class="bg-white p-6 rounded-lg shadow-md">
+                        <h3 class="font-bold text-xl mb-4 flex items-center gap-2">
+                            <span class="text-blue-600">${Icons.dumbbell}</span>
+                            AI Workout Generator
+                            <span class="text-purple-600">${Icons.sparkles}</span>
+                        </h3>
+                        <p class="text-gray-600 mb-6">
+                            Get a personalized workout plan generated by AI based on your equipment and fitness goals.
+                        </p>
+
+                        <div class="bg-gradient-to-r from-blue-50 to-indigo-50 p-6 rounded-lg mb-6 border border-blue-200">
+                            <h4 class="font-bold mb-4">Generate Custom Workout</h4>
+                            <div class="space-y-4">
+                                <div>
+                                    <label class="block text-sm font-semibold mb-2">Your Preferences:</label>
+                                    <textarea
+                                        id="workout-preferences"
+                                        class="w-full p-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                                        rows="4"
+                                        placeholder="Example: I have resistance bands and kettlebells, 30 minutes available, focus on upper body, beginner-intermediate level, want to avoid jumping exercises due to joints..."
+                                    ></textarea>
+                                </div>
+                                <button
+                                    onclick="generateWorkoutHandler()"
+                                    class="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-lg font-semibold flex items-center gap-2 transition-colors"
+                                    ${state.isGenerating ? 'disabled' : ''}
+                                >
+                                    ${state.isGenerating ? `
+                                        <div class="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
+                                        <span>Generating...</span>
+                                    ` : `
+                                        <span>${Icons.sparkles}</span>
+                                        <span>Generate Workout Plan</span>
+                                    `}
+                                </button>
+                            </div>
+                        </div>
+
+                        ${state.generatedWorkout ? `
+                            <div class="bg-gray-50 p-6 rounded-lg shadow-md">
+                                <div class="flex justify-between items-center mb-4">
+                                    <h4 class="font-bold text-lg">Your Custom Workout</h4>
+                                    <button
+                                        onclick="generateWorkoutHandler()"
+                                        class="text-sm bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded transition-colors"
+                                    >
+                                        Generate New Workout
+                                    </button>
+                                </div>
+                                <div class="bg-white p-4 rounded shadow-sm">
+                                    <div class="text-gray-700 whitespace-pre-wrap leading-relaxed">${state.generatedWorkout}</div>
+                                </div>
+                            </div>
+                        ` : ''}
+
+                        <div class="bg-yellow-50 p-4 rounded-lg border-l-4 border-yellow-500 shadow-sm mt-6">
+                            <h4 class="font-semibold mb-2">Safety Reminder ⚠️</h4>
+                            <p class="text-sm text-gray-700">
+                                Always warm up before exercise and consult your doctor before starting a new workout program. 
+                                Stop immediately if you experience chest pain, dizziness, or irregular heartbeat.
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        function ChatInterface() {
+            return `
+                <div class="space-y-6 fade-in">
+                    <div class="bg-white p-6 rounded-lg shadow-md">
+                        <h3 class="font-bold text-xl mb-4 flex items-center gap-2">
+                            <span class="text-purple-600">${Icons.messageCircle}</span>
+                            Ask Claude Anything
+                        </h3>
+                        <p class="text-gray-600 mb-6">
+                            Have questions about cholesterol, meals, workouts, or your health journey? Ask me anything!
+                        </p>
+
+                        <div class="bg-gray-50 rounded-lg p-4 mb-4 shadow-inner" style="height: 400px; overflow-y: auto;" id="chat-messages">
+                            ${state.chatMessages.length === 0 ? `
+                                <div class="text-center text-gray-500 py-8">
+                                    <div class="mb-4">${Icons.messageCircle}</div>
+                                    <p class="font-semibold mb-2">Start a conversation!</p>
+                                    <p class="text-sm">Ask me about:</p>
+                                    <ul class="text-sm mt-2 space-y-1">
+                                        <li>• Specific food choices</li>
+                                        <li>• Exercise alternatives</li>
+                                        <li>• Recipe modifications</li>
+                                        <li>• Progress tracking tips</li>
+                                    </ul>
+                                </div>
+                            ` : state.chatMessages.map(msg => `
+                                <div class="mb-4 ${msg.role === 'user' ? 'text-right' : 'text-left'}">
+                                    <div class="inline-block max-w-[80%] p-3 rounded-lg shadow ${
+                                        msg.role === 'user' 
+                                            ? 'bg-blue-600 text-white' 
+                                            : 'bg-white border border-gray-200 text-gray-800'
+                                    }">
+                                        <p class="text-sm whitespace-pre-wrap">${msg.content}</p>
+                                    </div>
+                                </div>
+                            `).join('')}
+                            ${state.isChatLoading ? `
+                                <div class="mb-4 text-left">
+                                    <div class="inline-block p-3 rounded-lg bg-white border border-gray-200">
+                                        <div class="flex items-center gap-2">
+                                            <div class="animate-spin rounded-full h-4 w-4 border-b-2 border-gray-600"></div>
+                                            <span class="text-sm text-gray-600">Thinking...</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            ` : ''}
+                        </div>
+
+                        <div class="flex gap-2">
+                            <input
+                                type="text"
+                                id="chat-input"
+                                class="flex-1 p-3 border rounded-lg focus:ring-2 focus:ring-purple-500 focus:outline-none"
+                                placeholder="Ask me anything about your health journey..."
+                                onkeypress="if(event.key === 'Enter') sendChatHandler()"
+                            />
+                            <button
+                                onclick="sendChatHandler()"
+                                class="bg-purple-600 hover:bg-purple-700 text-white px-6 py-3 rounded-lg font-semibold flex items-center gap-2 transition-colors"
+                                ${state.isChatLoading ? 'disabled' : ''}
+                            >
+                                <span>${Icons.send}</span>
+                            </button>
+                        </div>
+
+                        <div class="mt-4 bg-blue-50 p-4 rounded-lg">
+                            <h4 class="font-semibold text-sm mb-2">Example questions:</h4>
+                            <div class="flex flex-wrap gap-2">
+                                <button onclick="askExample('Is biltong okay for my cholesterol?')" class="text-xs bg-white hover:bg-gray-100 px-3 py-1 rounded-full border transition-colors">
+                                    Is biltong okay?
+                                </button>
+                                <button onclick="askExample('Give me a 20-minute kettlebell workout')" class="text-xs bg-white hover:bg-gray-100 px-3 py-1 rounded-full border transition-colors">
+                                    20-min kettlebell workout
+                                </button>
+                                <button onclick="askExample('What can I substitute for eggs in breakfast?')" class="text-xs bg-white hover:bg-gray-100 px-3 py-1 rounded-full border transition-colors">
+                                    Egg substitutes
+                                </button>
+                                <button onclick="askExample('How do I lower triglycerides quickly?')" class="text-xs bg-white hover:bg-gray-100 px-3 py-1 rounded-full border transition-colors">
+                                    Lower triglycerides
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        // Main render function
+        function render() {
+            const apiConfigured = API_KEY ? '✅' : '⚠️';
+            const apiStatus = API_KEY ? 'API Configured' : 'Configure API';
+            
+            const app = document.getElementById('app');
+            app.innerHTML = `
+                <div class="max-w-6xl mx-auto p-4">
+                    <div class="bg-white rounded-lg shadow-lg p-6 mb-6">
+                        <div class="flex items-center justify-between mb-4">
+                            <div>
+                                <h1 class="text-3xl font-bold text-gray-800 flex items-center gap-3">
+                                    <span class="text-red-500">${Icons.heart}</span>
+                                    Heart Health Manager
+                                </h1>
+                                <p class="text-gray-600 mt-2">Your personalized cholesterol & blood pressure companion</p>
+                            </div>
+                            <div class="flex items-center gap-4">
+                                <button
+                                    onclick="openApiModal()"
+                                    class="flex items-center gap-2 ${API_KEY ? 'bg-green-500 hover:bg-green-600' : 'bg-orange-500 hover:bg-orange-600'} text-white px-4 py-2 rounded-lg font-semibold transition-colors text-sm"
+                                >
+                                    <span>${apiStatus}</span>
+                                    <span>${apiConfigured}</span>
+                                </button>
+                                <div class="text-right">
+                                    <p class="text-sm text-gray-600">Welcome, ${userProfile.name}</p>
+                                    <p class="text-xs text-gray-500">Age ${userProfile.age} • BMI ${userProfile.bmi}</p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="flex gap-2 border-b overflow-x-auto">
+                            <button
+                                onclick="setTab('dashboard')"
+                                class="px-4 py-2 font-semibold transition-colors whitespace-nowrap ${
+                                    state.activeTab === 'dashboard' ? 'tab-active' : 'text-gray-600 hover:text-blue-600'
+                                }"
+                            >
+                                Dashboard
+                            </button>
+                            <button
+                                onclick="setTab('scanner')"
+                                class="px-4 py-2 font-semibold transition-colors whitespace-nowrap ${
+                                    state.activeTab === 'scanner' ? 'tab-active' : 'text-gray-600 hover:text-blue-600'
+                                }"
+                            >
+                                Label Scanner
+                            </button>
+                            <button
+                                onclick="setTab('meals')"
+                                class="px-4 py-2 font-semibold transition-colors whitespace-nowrap ${
+                                    state.activeTab === 'meals' ? 'tab-active' : 'text-gray-600 hover:text-blue-600'
+                                }"
+                            >
+                                Meal Planner
+                            </button>
+                            <button
+                                onclick="setTab('workouts')"
+                                class="px-4 py-2 font-semibold transition-colors whitespace-nowrap ${
+                                    state.activeTab === 'workouts' ? 'tab-active' : 'text-gray-600 hover:text-blue-600'
+                                }"
+                            >
+                                Workouts
+                            </button>
+                            <button
+                                onclick="setTab('chat')"
+                                class="px-4 py-2 font-semibold transition-colors whitespace-nowrap ${
+                                    state.activeTab === 'chat' ? 'tab-active' : 'text-gray-600 hover:text-blue-600'
+                                }"
+                            >
+                                Ask Claude
+                            </button>
+                        </div>
+                    </div>
+
+                    <div>
+                        ${state.activeTab === 'dashboard' ? Dashboard() : ''}
+                        ${state.activeTab === 'scanner' ? LabelScanner() : ''}
+                        ${state.activeTab === 'meals' ? MealPlanner() : ''}
+                        ${state.activeTab === 'workouts' ? WorkoutGenerator() : ''}
+                        ${state.activeTab === 'chat' ? ChatInterface() : ''}
+                    </div>
+
+                    <div class="mt-6 bg-white rounded-lg shadow-md p-4 text-center text-sm text-gray-600">
+                        <p class="font-semibold mb-1">⚕️ Medical Disclaimer</p>
+                        <p>This tool provides general guidance only. Always consult your doctor before making significant changes to your diet or exercise routine, especially with existing health conditions. Continue taking prescribed medications as directed.</p>
+                    </div>
+                </div>
+            `;
+
+            // Scroll chat to bottom if on chat tab
+            if (state.activeTab === 'chat') {
+                setTimeout(() => {
+                    const chatMessages = document.getElementById('chat-messages');
+                    if (chatMessages) {
+                        chatMessages.scrollTop = chatMessages.scrollHeight;
+                    }
+                }, 100);
+            }
+        }
+
+        // Initial render
+        render();
+
+        // Show API modal on first load if no key is set
+        if (!API_KEY) {
+            setTimeout(() => {
+                alert('👋 Welcome! Please configure your Anthropic API key to enable AI features.');
+                openApiModal();
+            }, 500);
+        }
+    </script>
+</body>
+</html>
